@@ -1,0 +1,82 @@
+# Databricks Asset Bundle for the Fin Coach app.
+#
+# Deploy with (set --var lakebase_project to YOUR Lakebase Autoscaling project):
+#   databricks bundle deploy -p <your-profile> --var="lakebase_project=<your-lakebase-project>"
+#   databricks bundle run fincoach -p <your-profile>          # starts the app
+#
+# The `resources` block below grants the app's service principal exactly what it
+# needs at runtime: query access to the Claude + embedding endpoints, and
+# CONNECT+CREATE on the Lakebase branch (so it can create the memory tables and
+# read/write rows). See README "Deploy" for the one extra Postgres-role step.
+
+bundle:
+  name: fincoach
+
+sync:
+  exclude:
+    - .venv
+    - .env
+    - "__pycache__"
+    - "*.pyc"
+    - ".DS_Store"
+
+variables:
+  lakebase_project:
+    description: Your Lakebase Autoscaling project name (create it first — see README).
+    default: fincoach
+  serving_endpoint:
+    default: databricks-claude-sonnet-5
+  embedding_endpoint:
+    default: databricks-gte-large-en
+
+resources:
+  experiments:
+    fincoach_experiment:
+      name: /Users/${workspace.current_user.userName}/fincoach_app_experiment
+
+  apps:
+    fincoach:
+      name: fincoach
+      description: "Fin Coach — personal finance coach with stateful Lakebase memory"
+      source_code_path: .
+      config:
+        command:
+          - python
+          - server.py
+        env:
+          - name: SERVING_ENDPOINT_NAME
+            value: ${var.serving_endpoint}
+          - name: EMBEDDING_ENDPOINT
+            value: ${var.embedding_endpoint}
+          - name: EMBEDDING_DIMS
+            value: "1024"
+          - name: LAKEBASE_PROJECT
+            value: ${var.lakebase_project}
+          - name: LAKEBASE_BRANCH
+            value: production
+          - name: MEMORY_SCHEMA
+            value: fincoach
+          - name: MLFLOW_EXPERIMENT_ID
+            value: ${resources.experiments.fincoach_experiment.id}
+      resources:
+        - name: serving-endpoint
+          serving_endpoint:
+            name: ${var.serving_endpoint}
+            permission: CAN_QUERY
+        - name: embedding-endpoint
+          serving_endpoint:
+            name: ${var.embedding_endpoint}
+            permission: CAN_QUERY
+        - name: experiment
+          experiment:
+            experiment_id: ${resources.experiments.fincoach_experiment.id}
+            permission: CAN_EDIT
+        - name: database
+          postgres:
+            branch: projects/${var.lakebase_project}/branches/production
+            database: projects/${var.lakebase_project}/branches/production/databases/databricks-postgres
+            permission: CAN_CONNECT_AND_CREATE
+
+targets:
+  dev:
+    default: true

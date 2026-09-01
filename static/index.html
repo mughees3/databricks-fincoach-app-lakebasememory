@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fin Coach — Lakebase Memory</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1b3139; --muted: #5a6b73;
+    --line: #e3e7ea; --accent: #ff3621; --accent2: #1b3139; --green: #00a972;
+    --chip: #eef1f3; --user: #1b3139; --bot: #ffffff;
+    --shadow: 0 1px 3px rgba(27,49,57,.08), 0 6px 20px rgba(27,49,57,.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+  header { height: 58px; background: var(--accent2); color: #fff; display: flex; align-items: center;
+           padding: 0 20px; gap: 12px; }
+  header .logo { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: grid;
+                 place-items: center; font-weight: 800; font-size: 15px; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .2px; }
+  header .sub { font-size: 12px; color: #b9c4c9; margin-left: 2px; }
+  header .spacer { flex: 1; }
+  .userbadge { font-size: 12px; background: rgba(255,255,255,.1); padding: 6px 10px; border-radius: 20px; }
+  .layout { display: grid; grid-template-columns: 1fr 420px; height: calc(100vh - 58px); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .memory { display:none; } }
+
+  /* Chat */
+  .chat { display: flex; flex-direction: column; height: 100%; border-right: 1px solid var(--line); }
+  .messages { flex: 1; overflow-y: auto; padding: 22px 26px; }
+  .msg { max-width: 80%; padding: 12px 15px; border-radius: 14px; margin-bottom: 14px; line-height: 1.5;
+         font-size: 14.5px; white-space: pre-wrap; box-shadow: var(--shadow); }
+  .msg.user { background: var(--user); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .msg.bot  { background: var(--bot); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.bot b, .msg.bot strong { color: var(--accent2); }
+  .composer { border-top: 1px solid var(--line); padding: 14px 18px; background: var(--panel); }
+  .composer form { display: flex; gap: 10px; }
+  .composer input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .composer input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .btn { border: none; border-radius: 10px; padding: 0 18px; font-weight: 600; cursor: pointer; font-size: 14px; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ghost { background: var(--chip); color: var(--accent2); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .newbtn { font-size: 12px; padding: 6px 12px; border-radius: 20px; }
+  .btn.accentbtn { background: var(--accent); color: #fff; }
+  .narration { display: none; align-items: center; gap: 14px; background: #10232b; color: #eaf1f3;
+               padding: 11px 20px; font-size: 13.5px; border-bottom: 1px solid #0a171c; }
+  .narration.show { display: flex; }
+  .narration #narrationText { flex: 1; }
+  .narration .step { color: var(--accent); font-weight: 700; margin-right: 6px; }
+  .stopbtn { background: rgba(255,255,255,.12); color:#fff; border:none; border-radius:16px; padding:4px 12px;
+             font-size:12px; cursor:pointer; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 26px 10px; }
+
+  /* Memory panel */
+  .memory { background: var(--panel); display: flex; flex-direction: column; height: 100%; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tab { flex: 1; padding: 13px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted);
+         cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+  .tabbody { flex: 1; overflow-y: auto; padding: 16px; }
+  .panel-title { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 4px 0 12px; }
+
+  .catgroup { margin-bottom: 16px; }
+  .catlabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+              color: var(--accent2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .catlabel .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .fact { background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-bottom: 7px; font-size: 13px; }
+  .fact .k { font-weight: 700; color: var(--accent2); }
+  .fact .v { color: var(--ink); }
+  .fact.new { animation: pop 1.4s ease; }
+  @keyframes pop { 0% { background: #ffe3de; transform: scale(1.02); } 100% { background: var(--chip); transform: scale(1); } }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; line-height: 1.6; }
+
+  .kv { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .kv .lab { color: var(--muted); }
+  .kv .val { font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; background: #f0f8f5; border-left: 3px solid var(--green);
+          padding: 10px 12px; border-radius: 6px; margin-top: 12px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  .tbl th { color: var(--muted); font-weight: 600; }
+  .tbl td.num { text-align: right; font-family: ui-monospace, Menlo, monospace; }
+  code.mono { font-family: ui-monospace, Menlo, monospace; background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .spin { display:inline-block; width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);
+          border-radius:50%; animation: sp .7s linear infinite; vertical-align:-2px;}
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">$</div>
+  <div>
+    <h1>Fin Coach</h1>
+    <div class="sub">Stateful agent memory on Lakebase</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn accentbtn newbtn" id="autoDemo" title="Run a scripted, narrated walkthrough of Lakebase memory">▶ Auto-demo</button>
+  <button class="btn ghost newbtn" id="resetBtn" title="Clear this user's long-term memory">🧹 Reset</button>
+  <button class="btn ghost newbtn" id="newSession" title="Start a fresh conversation thread — short-term memory resets, long-term memory persists">↻ New session</button>
+  <span class="userbadge" id="userBadge">…</span>
+</header>
+
+<div id="narration" class="narration"><span id="narrationText"></span><button id="stopDemo" class="stopbtn">Stop</button></div>
+
+<div class="layout">
+  <!-- Chat -->
+  <section class="chat">
+    <div class="messages" id="messages"></div>
+    <p class="hint" id="threadHint"></p>
+    <div class="composer">
+      <form id="chatForm">
+        <input id="chatInput" placeholder="Tell Fin Coach about your money, or ask a question…" autocomplete="off" />
+        <button class="btn primary" id="sendBtn" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Memory inspector -->
+  <aside class="memory">
+    <div class="tabs">
+      <div class="tab active" data-tab="facts">🧠 Long-term memory</div>
+      <div class="tab" data-tab="session">💬 This session</div>
+      <div class="tab" data-tab="db">🗄️ Lakebase</div>
+    </div>
+
+    <div class="tabbody" id="tab-facts">
+      <div class="panel-title">Facts remembered about you <span id="factCount"></span></div>
+      <div id="factsList"><div class="empty">No facts yet.<br>Tell Fin Coach something durable —<br>“my take-home is $6,000/month”.</div></div>
+      <div class="note">These rows live in the Lakebase <code class="mono">store</code> table, keyed by your <code class="mono">user_id</code>. They survive new sessions, browser reloads, and days. That's <b>long-term memory</b>.</div>
+    </div>
+
+    <div class="tabbody" id="tab-session" style="display:none">
+      <div class="panel-title">Short-term memory (this thread)</div>
+      <div class="kv"><span class="lab">thread_id</span><span class="val" id="s-thread">—</span></div>
+      <div class="kv"><span class="lab">turns this session</span><span class="val" id="s-turns">0</span></div>
+      <div class="note">Every message in this thread is checkpointed to Lakebase (<code class="mono">checkpoints</code> table), keyed by <code class="mono">thread_id</code>. Click <b>New session</b> to get a fresh thread — the chat clears, but Fin Coach still recalls your long-term facts. That contrast is the whole point.</div>
+    </div>
+
+    <div class="tabbody" id="tab-db" style="display:none">
+      <div class="panel-title">Lakebase Postgres tables</div>
+      <div id="dbBody"><div class="empty">Loading…</div></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const CATEGORY_META = {
+  identity:      {icon:"🪪", label:"Identity",       color:"#0891b2"},
+  income:        {icon:"💵", label:"Income",         color:"#00a972"},
+  goal:          {icon:"🎯", label:"Goals",          color:"#ff3621"},
+  risk_tolerance:{icon:"⚖️", label:"Risk tolerance", color:"#8a3ffc"},
+  recurring_bill:{icon:"🧾", label:"Recurring bills",color:"#ff8c00"},
+  asset:         {icon:"🏦", label:"Assets",         color:"#1f6feb"},
+  debt:          {icon:"💳", label:"Debts",          color:"#c62828"},
+  household:     {icon:"🏠", label:"Household",       color:"#5a6b73"},
+  preference:    {icon:"⭐", label:"Preferences",     color:"#b58900"},
+  uncategorized: {icon:"📌", label:"Other",           color:"#5a6b73"},
+};
+
+let threadId = null;
+let turns = 0;
+let userId = "…";
+let knownKeys = new Set();
+let demoMode = false;   // while true, all calls target an isolated demo namespace
+
+const $ = (id) => document.getElementById(id);
+const messagesEl = $("messages");
+
+// Build query params for every API call:
+//  - ?user=<id> lets you demo multiple people locally (ignored once deployed,
+//    where the authenticated user comes from a header).
+//  - ?demo=1 (while the auto-demo runs) routes to an ISOLATED memory namespace so
+//    the demo never touches your real saved profile.
+const USER_PARAM = new URLSearchParams(location.search).get("user");
+function api(path) {
+  const params = [];
+  if (USER_PARAM) params.push("user=" + encodeURIComponent(USER_PARAM));
+  if (demoMode) params.push("demo=1");
+  if (!params.length) return path;
+  return path + (path.includes("?") ? "&" : "?") + params.join("&");
+}
+
+function addMessage(role, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "user" : "bot");
+  // minimal markdown: **bold**
+  d.innerHTML = text.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "\n");
+  messagesEl.appendChild(d);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return d;
+}
+
+function updateThreadHint() {
+  $("threadHint").innerHTML = threadId
+    ? `Session thread <code class="mono">${threadId.slice(0,8)}…</code> · ${turns} turn(s)`
+    : "New session — say hello 👋";
+  $("s-thread").textContent = threadId ? threadId.slice(0,13)+"…" : "—";
+  $("s-turns").textContent = turns;
+}
+
+async function loadFacts(animateNew=false) {
+  try {
+    const r = await fetch(api("/api/facts"));
+    const data = await r.json();
+    const facts = data.facts || [];
+    $("factCount").textContent = facts.length ? `(${facts.length})` : "";
+    const groups = {};
+    for (const f of facts) (groups[f.category] ??= []).push(f);
+    const order = Object.keys(CATEGORY_META);
+    const list = $("factsList");
+    if (!facts.length) {
+      list.innerHTML = `<div class="empty">No facts yet.<br>Tell Fin Coach something durable —<br>“my take-home is $6,000/month”.</div>`;
+      return;
+    }
+    let html = "";
+    for (const cat of order) {
+      if (!groups[cat]) continue;
+      const meta = CATEGORY_META[cat] || CATEGORY_META.uncategorized;
+      html += `<div class="catgroup"><div class="catlabel"><span class="dot" style="background:${meta.color}"></span>${meta.icon} ${meta.label}</div>`;
+      for (const f of groups[cat]) {
+        const isNew = animateNew && !knownKeys.has(f.key);
+        html += `<div class="fact ${isNew?'new':''}"><span class="k">${f.key}</span> — <span class="v">${escapeHtml(f.content)}</span></div>`;
+      }
+      html += `</div>`;
+    }
+    list.innerHTML = html;
+    knownKeys = new Set(facts.map(f => f.key));
+  } catch (e) { /* ignore */ }
+}
+
+function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+async function loadDb() {
+  const body = $("dbBody");
+  body.innerHTML = `<div class="empty"><span class="spin"></span> querying Lakebase…</div>`;
+  try {
+    const r = await fetch(api("/api/db"));
+    const d = await r.json();
+    if (d.available === false) {
+      body.innerHTML = `<div class="note">Raw table view isn't reachable in this environment, but the memory above is read live from Lakebase.<br><br><span style="color:#5a6b73">${escapeHtml(d.reason||"")}</span></div>`;
+      return;
+    }
+    let rows = (d.tables||[]).map(t =>
+      `<tr><td><code class="mono">${t.schema}.${t.name}</code></td><td>${t.role||""}</td><td class="num">${t.rows}</td></tr>`).join("");
+    body.innerHTML = `<table class="tbl"><thead><tr><th>table</th><th>holds</th><th>rows</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="note">Project <code class="mono">${escapeHtml(d.project||"")}</code> · branch <code class="mono">${escapeHtml(d.branch||"")}</code>. These are ordinary Postgres tables — the whole agent memory is just rows you can query, back up, and govern.</div>`;
+  } catch (e) {
+    body.innerHTML = `<div class="note">Could not load: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+// Tabs
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  const tab = t.dataset.tab;
+  $("tab-facts").style.display   = tab==="facts"   ? "block":"none";
+  $("tab-session").style.display = tab==="session" ? "block":"none";
+  $("tab-db").style.display      = tab==="db"      ? "block":"none";
+  if (tab==="db") loadDb();
+});
+
+$("newSession").onclick = () => {
+  threadId = null; turns = 0;
+  messagesEl.innerHTML = "";
+  addMessage("bot", "New session started. Your chat history is cleared — but I still remember everything in your long-term profile on the right. Try asking: **\"what's my savings goal again?\"**");
+  updateThreadHint();
+};
+
+async function sendMessage(text) {
+  if (!text) return;
+  addMessage("user", text);
+  $("sendBtn").disabled = true;
+  const thinking = addMessage("bot", "…");
+  thinking.innerHTML = `<span class="spin"></span>`;
+  try {
+    const r = await fetch(api("/api/chat"), {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ input: [{role:"user", content:text}], thread_id: threadId })
+    });
+    const d = await r.json();
+    threadId = d.thread_id; turns++;
+    thinking.innerHTML = (d.output||"(no response)").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+    updateThreadHint();
+    loadFacts(true);           // refresh long-term panel; highlight new facts
+  } catch (err) {
+    thinking.textContent = "⚠️ " + err;
+  } finally {
+    $("sendBtn").disabled = false;
+    $("chatInput").focus();
+  }
+}
+
+$("chatForm").onsubmit = (e) => {
+  e.preventDefault();
+  const input = $("chatInput");
+  const text = input.value.trim();
+  input.value = "";
+  sendMessage(text);
+};
+
+$("resetBtn").onclick = async () => {
+  if (!confirm("Clear your saved long-term memory for this profile? This permanently deletes the facts in the panel. (The auto-demo does NOT need this — it uses a separate sandbox.)")) return;
+  await fetch(api("/api/reset"), { method: "POST" });
+  threadId = null; turns = 0; knownKeys = new Set();
+  messagesEl.innerHTML = "";
+  addMessage("bot", "Memory cleared. This is a blank slate — the long-term panel is empty.");
+  updateThreadHint(); loadFacts();
+};
+
+// ---------------- Auto-demo engine ----------------
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+let demoRunning = false;
+function setTab(name){ document.querySelector(`.tab[data-tab="${name}"]`).click(); }
+function narrate(step, total, text){
+  $("narration").classList.add("show");
+  $("narrationText").innerHTML = `<span class="step">Step ${step}/${total}</span>${text}`;
+}
+async function typeInto(text){
+  const input = $("chatInput"); input.value = "";
+  for (const ch of text){ input.value += ch; await sleep(14); }
+  await sleep(300);
+}
+
+const DEMO_TOTAL = 6;
+const DEMO = [
+  { narrate: "Running in an <b>isolated demo profile</b> — your own saved memory is untouched. Clearing the sandbox to start from a blank slate.", run: async () => {
+      setTab("facts"); await fetch(api("/api/reset"), {method:"POST"});
+      threadId = null; turns = 0; knownKeys = new Set(); messagesEl.innerHTML = "";
+      updateThreadHint(); await loadFacts(); await sleep(900); } },
+  { narrate: "Session 1 — the user tells Fin Coach about their money. Watch facts land in the Lakebase <b>store</b> table on the right. →", run: async () => {
+      await typeInto("Hi! My take-home pay is $5,500/month. I'm saving for a $30,000 house deposit and I'd like to get there in 3 years.");
+      await sendMessage($("chatInput").value.trim()); $("chatInput").value=""; await sleep(1200); } },
+  { narrate: "More detail — a debt and a risk preference. Two more facts get remembered. →", run: async () => {
+      await typeInto("I also have an $8,000 student loan at 6% APR, and I'm fairly cautious — I don't like risky investments.");
+      await sendMessage($("chatInput").value.trim()); $("chatInput").value=""; await sleep(1200); } },
+  { narrate: "Now we start a <b>brand-new session</b> — a fresh conversation thread. Short-term memory is wiped.", run: async () => {
+      threadId = null; turns = 0; messagesEl.innerHTML = "";
+      addMessage("bot", "— new session started —"); updateThreadHint(); await sleep(1200); } },
+  { narrate: "The user never re-introduces themselves — yet Fin Coach recalls everything from <b>long-term memory</b> and answers. This is the whole point. ↓", run: async () => {
+      setTab("facts");
+      await typeInto("Remind me what you know about me, and can I afford a $300/month gym membership?");
+      await sendMessage($("chatInput").value.trim()); $("chatInput").value=""; await sleep(1400); } },
+  { narrate: "Under the hood it's just Postgres rows in Lakebase — governable, queryable, durable. Demo complete. ✅", run: async () => {
+      setTab("db"); await sleep(500); } },
+];
+
+async function runDemo(){
+  if (demoRunning) return;
+  demoRunning = true;
+  demoMode = true;                         // route all calls to the isolated sandbox
+  $("userBadge").textContent = "🧪 " + userId + " · demo sandbox";
+  $("autoDemo").disabled = true; $("chatInput").disabled = true; $("sendBtn").disabled = true;
+  try {
+    for (let i=0;i<DEMO.length;i++){
+      if (!demoRunning) break;
+      narrate(i+1, DEMO_TOTAL, DEMO[i].narrate);
+      await DEMO[i].run();
+    }
+  } finally { stopDemo(); }
+}
+async function stopDemo(){
+  demoRunning = false;
+  demoMode = false;                        // back to the real profile
+  $("autoDemo").disabled = false; $("chatInput").disabled = false; $("sendBtn").disabled = false;
+  $("userBadge").textContent = "👤 " + userId;
+  // Restore the real profile view: fresh session, real long-term facts.
+  threadId = null; turns = 0; knownKeys = new Set(); messagesEl.innerHTML = "";
+  addMessage("bot", "Demo finished — back to your real profile. Your own saved memory was never touched. Ask me anything, or run the auto-demo again.");
+  updateThreadHint();
+  setTab("facts"); loadFacts();
+  setTimeout(() => $("narration").classList.remove("show"), 4000);
+}
+$("autoDemo").onclick = runDemo;
+$("stopDemo").onclick = () => { $("narration").classList.remove("show"); stopDemo(); };
+
+// Boot
+(async () => {
+  try { const w = await (await fetch(api("/api/whoami"))).json(); userId = w.user_id; } catch {}
+  $("userBadge").textContent = "👤 " + userId;
+  addMessage("bot", "Hi, I'm **Fin Coach**. Tell me about your finances — your take-home pay, what you're saving for, your risk comfort — and I'll remember it for good. Then ask me things like **\"can I afford a $400/month car payment?\"**");
+  updateThreadHint();
+  loadFacts();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+databricks-langchain[memory]
+databricks-sdk
+langchain
+langchain-community
+langgraph
+langgraph-checkpoint-postgres
+langgraph-prebuilt==1.0.8
+fastapi
+uvicorn
+psycopg[binary,pool]
+python-dotenv
+mlflow-skinny[databricks]

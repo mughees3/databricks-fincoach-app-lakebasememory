@@ -1,0 +1,30 @@
+# Local environment / secrets
+# (.env holds the local profile/project; use .env.example as the template)
+.env
+*.pem
+*.key
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Databricks bundle / Terraform local state
+# (not source; may embed workspace metadata)
+.databricks/
+*.tfstate
+*.tfstate.*
+
+# MLflow local runs
+mlruns/
+mlartifacts/
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/

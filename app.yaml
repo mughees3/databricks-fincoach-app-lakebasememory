@@ -1,0 +1,20 @@
+# Databricks App runtime config.
+# `env` values are injected as environment variables into the running app.
+# The Lakebase, serving-endpoint and embedding grants are declared in databricks.yml.
+command: ["python", "server.py"]
+
+env:
+  - name: SERVING_ENDPOINT_NAME
+    value: "databricks-claude-sonnet-5"
+  - name: EMBEDDING_ENDPOINT
+    value: "databricks-gte-large-en"
+  - name: EMBEDDING_DIMS
+    value: "1024"
+  - name: LAKEBASE_PROJECT
+    value: "fincoach"          # <- set to YOUR Lakebase Autoscaling project name
+  - name: LAKEBASE_BRANCH
+    value: "production"
+  - name: MEMORY_SCHEMA
+    value: "fincoach"
+  - name: MLFLOW_EXPERIMENT_ID
+    valueFrom: "experiment"
